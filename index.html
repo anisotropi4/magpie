@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>OSM British Isles Administration Data</title>
+        <meta charset="utf-8"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="Cache-control" content="No-Cache">
+        <link rel="shortcut icon" type="image/x-icon" href="docs/images/favicon.ico"/>
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css"
+              integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ==" crossorigin=""/>
+        <script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js"
+                integrity="sha512-gZwIG9x3wUXg2hdXF6+rVkLF/0Vi9U8D2Ntg4Ga5I5BZpVkVxlJWbSQtXPSiUTtC0TjtGOmxa1AJPuV0CPthew=="
+                crossorigin=""></script>
+        <script src="http://d3js.org/d3.v5.min.js"></script>
+        <div id="map" style="width: 1340px; height: 780px"></div>
+    </head>
+    <body>
+        <div id='map'></div>
+        <script type="text/javascript">
+         var radius = 3;
+         var weight = 1;
+         var linewidth = 2;
+         var log2 = Math.log(2.0);
+         var minZoom = 3;
+         var maxZoom = 18;
+         var map = L.map('map').setView([54.533, -2.53], 6);
+         var voltages = ["25000", "1500", "750", "630", "600", "550"]
+             
+            L.tileLayer("http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                maxZoom: maxZoom,
+                minZoom: minZoom,
+                attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors, ' + '<a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, ' + 'Imagery © <a href="https://www.mapbox.com/">Mapbox</a>',
+                id: 'osm.standard'
+            }).addTo(map);
+
+         d3.json("output-all.json").then(function(d) {
+             function onEachFeature(feature, layer) {
+                    var this_feature = feature.properties;
+                    var popupContent;
+                    if (this_feature.name)
+                        popupContent = this_feature.name;
+                    else
+                        popupContent = this_feature.railway;
+                    var lookup = {
+                        "osm_id": "OSM ID",
+                        "place": "Place",
+                        "natural": "Natural",
+                        "place": "Place",
+                        "highway": "Road",
+                        "ref": "CRS",
+                        "admin_level": "admin",
+                        "boundary": "boundary",
+                        "voltage": "voltage",
+                        "frequency": "frequency",
+                        "electrified": "electrified"
+                    }
+                    var k = Object.keys(this_feature).filter(i=>(i != "type" && i != "geometry" && i != "name" && i != "is_in" && i != "z_order" && i != "railway"))
+                    for (var i = 0; i < k.length; i++) {
+                        popupContent += '<br>' + lookup[k[i]] + ': ' + this_feature[k[i]];
+                    }
+                    ;layer.bindPopup(popupContent);
+                }
+                L.geoJSON(d, {
+                    style: function(feature) {
+                        var k = voltages.indexOf(feature.properties.voltage) + 2;
+                        var c = d3.interpolateInferno(k / 8.0);
+                        switch (feature.geometry.type) {
+                            case 'Point':
+                                return {
+                                    color: c,
+                                    radius: radius,
+                                    weight: weight
+                                };
+                            case 'LineString':
+                                return {
+                                    color: c,
+                                    weight: linewidth
+                                };
+                            case 'MultiPolygon':
+                                return {
+                                    weight: linewidth,
+                                    opacity: 1.0,
+                                    color: "Green",
+                                    fillColor: "Green",
+                                    fillOpacity: 0.2
+                                };
+                            case 'GeometryCollection':
+                                return {
+	                                  radius: radius,
+                                    weight: linewidth,
+                                    opacity: 1.0,
+                                    color: "Green",
+                                    fillColor: "GreenYellow",
+                                    fillOpacity: 0.2
+                                };
+
+                            default:
+                                return {
+                                    weight: weight
+                                };
+                        }
+                    },
+                    onEachFeature: onEachFeature,
+                    pointToLayer: function(feature, latlng) {
+                        return L.circleMarker(latlng, {
+                            opacity: 1,
+                            fillOpacity: 0.8
+                        });
+                    }
+                }).addTo(map);
+            });
+        </script>
+    </body>
+</html>
