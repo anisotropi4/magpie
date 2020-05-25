@@ -32,7 +32,7 @@ for element in points lines multilinestrings multipolygons other_relations
 do
     if [ ! -s ${REGION}-${KEYWORD}-${element}.json ]; then
         ogr2ogr --config OGR_INTERLEAVED_READING YES --config OSM_CONFIG_FILE osmconf-all.ini \
-                -where "(railway IS NOT NULL) OR (train IS NOT NULL) or (rail IS NOT NULL) or (ref_tiploc IS NOT NULL)" \
+                -where "(railway IS NOT NULL) OR (train IS NOT NULL) or (rail IS NOT NULL)" \
 		            -f GeoJSON ${REGION}-${KEYWORD}-${element}.json \
 		            output/${REGION}-latest.osm.pbf ${element}
     fi
