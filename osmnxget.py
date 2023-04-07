@@ -17,7 +17,7 @@ ox.settings.log_console = True
 
 ox.settings.overpass_rate_limit = False
 
-FILEPATH = "gb-rail.gpkg"
+FILEPATH = "great-britain-rail.gpkg"
 CRS = "EPSG:32630"
 WGS84 = "EPSG:4326"
 
@@ -160,5 +160,5 @@ write_dataframe(GF2.to_crs(CRS), FILEPATH, layer="nodes")
 
 log("Write output file")
 OUTPUT = GF1.to_json(na="drop", drop_id=True)
-with open("gb-rail.geojson", "w") as fout:
+with open("great-britain-rail.geojson", "w") as fout:
     fout.write(OUTPUT)
