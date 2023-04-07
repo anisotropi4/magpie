@@ -1,62 +1,31 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
-if [ ! -d output/archive ]; then
-    mkdir -p output/archive
-fi
+set -x
 
-CONTINENT=europe
-REGION=great-britain
+for i in archive cache
+do
+    if [ ! -d ${i} ]; then
+        mkdir -p ${i}
+    fi
+done
 
-URL=http://download.geofabrik.de/${CONTINENT}
-FILENAME=${REGION}-latest.osm.pbf
-if [ ! -s  output/${FILENAME} ]; then
-    curl -L -o output/${FILENAME} ${URL}/${FILENAME}
-fi
-
-if [ ! -f data/${REGION}.poly ]; then
-    echo missing data/${REGION}.poly polygon file
-    exit 1
-fi
-
-if [ x"$(find output/${REGION}-latest.osm.pbf -mmin -15)" = x ]; then
-    osmupdate output/${FILENAME} ${REGION}-update.osm.pbf -B=data/${REGION}.poly --verbose --keep-tempfiles
-    mv output/${FILENAME} output/archive
-    mv ${REGION}-update.osm.pbf output/${FILENAME}
+if [ ! -d venv ]; then
+    echo Set up python3 virtual environment
+    python -m venv venv
+    source venv/bin/activate
+    pip install --upgrade pip
+    pip install -r requirements.txt
 else
-    echo "${FILENAME} is less than 15 minutes old"
+    source venv/bin/activate
 fi
 
-for element in points lines multilinestrings multipolygons other_relations
+for FILENAME in great-britain-rail.geojson great-britain-rail.gpkg
 do
-    KEYWORD=all
-    if [ ! -s ${REGION}-${KEYWORD}-${element}.json ]; then
-        ogr2ogr --config OGR_INTERLEAVED_READING YES --config OSM_CONFIG_FILE osmconf-${KEYWORD}.ini \
-                -where "(railway IS NOT NULL) OR (train IS NOT NULL) or (rail IS NOT NULL)" \
-		            -f GeoJSON ${REGION}-${KEYWORD}-${element}.json \
-		            output/${REGION}-latest.osm.pbf ${element}
+    if [ ! -s ${FILENAME} ]; then
+        mv ${FILENAME} archive
     fi
 done
 
-if [ ! -s extract-keys.txt ]; then
-    jq '.features[].properties.all_tags' great-britain-all-*.json | sed 's/=>/:/g; s/^"//; s/"$//; s/\\//g; s/","/"\n"/g' | sed 's/":.*$/"/' | sort -u > extract-keys.txt
-fi
+./osmnxget.py
 
-
-for element in points lines multilinestrings multipolygons other_relations
-do
-    KEYWORD=rail
-    if [ ! -s ${REGION}-${KEYWORD}-${element}.json ]; then
-            ogr2ogr --config OGR_INTERLEAVED_READING YES --config OSM_CONFIG_FILE osmconf-${KEYWORD}.ini \
-                -where "(railway IS NOT NULL) OR (train IS NOT NULL) or (rail IS NOT NULL)" \
-		            -f GeoJSON ${REGION}-${KEYWORD}-${element}.json \
-		            output/${REGION}-latest.osm.pbf ${element}
-    fi
-    KEYWORD=voltage
-    if [ ! -s ${REGION}-${KEYWORD}-${element}.json ]; then
-            ogr2ogr --config OGR_INTERLEAVED_READING YES --config OSM_CONFIG_FILE osmconf-${KEYWORD}.ini \
-                -where "((railway IS NOT NULL) OR (train IS NOT NULL) or (rail IS NOT NULL)) AND (voltage IS NOT NULL)" \
-		            -f GeoJSON ${REGION}-${KEYWORD}-${element}.json \
-		            output/${REGION}-latest.osm.pbf ${element}
-    fi
-done
-
+ln great-britain-rail.geojson output-all.json
