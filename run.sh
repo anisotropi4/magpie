@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-set -x
-
 for i in archive cache
 do
     if [ ! -d ${i} ]; then
