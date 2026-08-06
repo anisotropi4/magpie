@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 
-for i in archive cache
+for i in archive data output
 do
     if [ ! -d ${i} ]; then
         mkdir -p ${i}
     fi
 done
+
 
 if [ ! -d venv ]; then
     echo Set up python3 virtual environment
@@ -17,13 +18,19 @@ else
     source venv/bin/activate
 fi
 
-for FILENAME in great-britain-rail.geojson great-britain-rail.gpkg
+if [ $(ls data/*.pbf 2> /dev/null | wc -l) -gt 1 ]; then
+    echo ERROR: more than one osm.pbf file in data directory
+    echo data/*.pbf
+elif [ ! $(ls data/*.pbf 2> /dev/null | wc -l) -eq 1 ]; then
+    echo ERROR: download INE osm.pbf file in data directory
+    echo e.g. https://download.geofabrik.de/europe/britain-and-ireland.html
+fi
+
+for FILENAME in output/*.gpkg
 do
     if [ ! -s ${FILENAME} ]; then
         mv ${FILENAME} archive
     fi
 done
 
-./osmnxget.py
-
-ln great-britain-rail.geojson output-all.json
+./quackosmget.py
