@@ -37,7 +37,7 @@ def list_files(filepath, key=".pbf"):
 
 def set_parquet():
     """set_parquet:"""
-    for pbf_path in list_files("data"):
+    for pbf_path in list_files("data", "britain"):
         filestub = os.path.basename(pbf_path).split(".")[0]
         print(filestub)
         if list_files("output", filestub) != ():
@@ -50,7 +50,7 @@ def set_parquet():
         )
 
 
-def get_rail(chunk=500_000):
+def get_rail():
     """get_rail:"""
     data = []
     for filepath in list_files("output", ".parquet"):
