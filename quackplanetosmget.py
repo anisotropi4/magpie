@@ -43,7 +43,7 @@ def set_parquet():
 def get_rail():
     """get_rail:"""
     data = []
-    for filepath in list_files("output", ".parquet"):
+    for filepath in sorted(list_files("output", ".parquet")):
         if "planet" not in filepath:
             continue
         print(filepath)
@@ -57,6 +57,9 @@ def get_rail():
             .unnest("tags")
             .filter(pl.col("key").is_in(column))
             .pivot(index=["feature_id", "geometry"], on="key", values="value")
+            .with_columns(
+                america=pl.lit((len(data) >= 2) and (len(data) < 12)),
+            )
         )
         data.append(r)
     return pl.concat(data, how="diagonal_relaxed").fill_null("")
@@ -145,9 +148,21 @@ def main():
     """main: core execution functions"""
     set_parquet()
     rail = get_rail()
-    write_geopanda(rail, "base")
+    write_geopanda(rail.drop("america"), "base", "output/planet-base.gpkg")
     rail = get_active_rail(rail)
     write_geopanda(rail.filter(pl.col("rail") == 2).fill_null(""), "rail")
+    america = rail.filter(pl.col("america")).drop("america")
+    africaustraeurasia = rail.filter(~pl.col("america")).drop("america")
+    write_geopanda(
+        america.filter(pl.col("rail") == 2).fill_null(""),
+        "rail",
+        "output/america-rail.gpkg",
+    )
+    write_geopanda(
+        africaustraeurasia.filter(pl.col("rail") == 2).fill_null(""),
+        "rail",
+        "output/africaustraeurasia-rail.gpkg",
+    )
     print(OUTPATH)
 
 
