@@ -13,7 +13,7 @@ WGS84 = "EPSG:4326"
 # CRS = "EPSG:4087"
 CRS = "EPSG:27700"
 
-OUTPATH = "output/ine-track.gpkg"
+OUTPATH = "output/ine-rail.gpkg"
 
 pd.set_option("display.max_columns", None)
 
