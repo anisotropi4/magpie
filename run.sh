@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-for i in archive data output
+for i in archive data output planet
 do
     if [ ! -d ${i} ]; then
         mkdir -p ${i}
@@ -18,14 +18,18 @@ else
     source venv/bin/activate
 fi
 
-if [ $(ls data/*.pbf 2> /dev/null | wc -l) -gt 1 ]; then
-    echo ERROR: more than one osm.pbf file in data directory
-    echo data/*.pbf
+if [ $(ls data/britain-and-ireland*.pbf 2> /dev/null | wc -l) -gt 1 ]; then
+    echo ERROR: more than one INE osm.pbf file in data directory
+    echo data/britain*.pbf
     exit 1
-elif [ ! $(ls data/*.pbf 2> /dev/null | wc -l) -eq 1 ]; then
-    echo ERROR: download INE osm.pbf file in data directory
-    echo e.g. https://download.geofabrik.de/europe/britain-and-ireland.html
+elif [ $(ls data/planet*.pbf 2> /dev/null | wc -l) -gt 1 ]; then
+    echo ERROR: more than one planet osm.pbf file in data directory
+    echo data/planet*.pbf
     exit 2
+elif [ $(ls data/*.pbf 2> /dev/null | wc -l) -eq 0 ]; then
+    echo ERROR: download INE or planet osm.pbf file in data directory
+    echo e.g. https://download.geofabrik.de/europe/britain-and-ireland.html
+    exit 3
 fi
 
 for FILENAME in output/*.gpkg
@@ -35,4 +39,13 @@ do
     fi
 done
 
-./quackosmget.py
+if [ $(ls data/britain-and-ireland*.pbf 2> /dev/null | wc -l) -eq 1 ]; then
+    echo process INE extract
+    ./quackosmget.py
+fi
+
+if [ $(ls data/planet*.pbf 2> /dev/null | wc -l) -eq 1 ]; then
+    echo process planet extract
+    ./chunk-planet.sh data/planet*.osm.pbf
+    ./quackplanetosmget.py
+fi
