@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
+"""quackosmget: extract rail related INE data from OSM"""
 
 import os
-from functools import partial
 
 import geopandas as gp
 import pandas as pd
 import polars as pl
 import quackosm as qosm
-from shapely.ops import transform
 
 WGS84 = "EPSG:4326"
 # CRS = "EPSG:4087"
@@ -18,49 +17,54 @@ OUTPATH = "output/ine-rail.gpkg"
 pd.set_option("display.max_columns", None)
 
 
-def _set_precision(precision=6):
-    """set_precision:"""
-
-    def _precision(x, y, z=None):
-        return tuple([round(i, precision) for i in [x, y, z] if i])
-
-    return partial(transform, _precision)
+def _pp(df, n=100):
+    """pp: pretty print polar frame"""
+    with pl.Config(set_tbl_cols=-1, set_tbl_rows=n, set_tbl_hide_dataframe_shape=True):
+        try:
+            r = df.collect()
+        except AttributeError:
+            r = df
+        column = r.columns
+        for i in range(0, len(column), 15):
+            chunk = r.columns[i : i + 15]
+            print(r[chunk])
+    print(r.shape)
 
 
 def list_files(filepath, key=".pbf"):
     """list_files:"""
     files = ()
     for d, _, filenames in os.walk(filepath):
-        files = files + tuple("{}/{}".format(d, f) for f in filenames if key in f)
-    return files
+        files = files + tuple(f"{d}/{f}" for f in filenames if key in f)
+    return iter(files)
 
 
 def set_parquet():
     """set_parquet:"""
-    for pbf_path in list_files("data", "britain"):
-        filestub = os.path.basename(pbf_path).split(".")[0]
-        print(filestub)
-        if list_files("output", filestub) != ():
-            continue
-        _ = qosm.convert_pbf_to_parquet(
-            pbf_path,
-            tags_filter={"railway": True},
-            keep_all_tags=True,
-            result_file_path=f"output/{filestub}.parquet",            
-        )
+    pbf_path = next(list_files("data", "britain"))
+    filestub = os.path.basename(pbf_path).split(".")[0]
+    if list_files("output", filestub) != ():
+        return
+    print(filestub)
+    _ = qosm.convert_pbf_to_parquet(
+        pbf_path,
+        tags_filter={"railway": True, "rail": True},
+        keep_all_tags=True,
+        result_file_path=f"output/{filestub}.parquet",
+    )
 
 
 def get_rail():
     """get_rail:"""
     data = []
     for filepath in list_files("output", ".parquet"):
-        print(filepath)
         if "britain" not in filepath:
             continue
+        print(filepath)
         r = pl.read_parquet(filepath)
         column = (
-            """railway,ref,name,ref:tiploc,ref:stanox,maxspeed,electrified,frequency,"""
-            """voltage,junction,bridge,width,tunnel,oneway,landuse,geometry"""
+            """railway,ref,name,ref:tiploc,ref:stanox,maxspeed,electrified,frequency,voltage,"""
+            """line,operator,junction,bridge,width,tunnel,oneway,landuse,geometry,network,route"""
         ).split(",")
         r = (
             r.explode("tags", empty_as_null=True)
@@ -88,16 +92,16 @@ def write_geopanda(df, layer, outfile=OUTPATH):
 
 
 def main():
+    """main: script execution function"""
     set_parquet()
     rail = get_rail()
     write_geopanda(rail, "base")
-
     inactive_filter = (
         """highway,cycleway,footway,path,pedestrian,steps,corridor,elevator,escalator,"""
         """proposed,construction,bridleway,abandoned,platform,raceway,service"""
     ).split(",")
-    railway_filter = "rail,subway,light_rail,tram,narrow_gauge".split(",")
-    # railway {0: inactive, 1: other, 2: rail/metro
+    railway_filter = "rail,subway,light_rail,tram,narrow_gauge,network".split(",")
+    # railway {0: inactive, 1: other, 2: rail/metro}
     rail = rail.with_columns(
         rail=pl.when(pl.col("railway").str.contains_any(inactive_filter))
         .then(pl.lit(0))
@@ -113,7 +117,8 @@ def main():
         )
         .fill_null(-1.0),
         id=pl.when(
-            (pl.col("electrified") == "contact_line") & ~pl.col("voltage").is_in(["", "0"])
+            (pl.col("electrified") == "contact_line")
+            & ~pl.col("voltage").is_in(["", "0"])
         )
         .then(pl.lit("OCL"))
         .when(pl.col("electrified") == "rail")
@@ -127,6 +132,6 @@ def main():
     write_geopanda(rail.filter(pl.col("rail") == 2).fill_null(""), "rail")
     print(OUTPATH)
 
+
 if __name__ == "__main__":
     main()
-    
