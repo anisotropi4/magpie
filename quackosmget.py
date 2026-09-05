@@ -17,7 +17,7 @@ OUTPATH = "output/ine-rail.gpkg"
 pd.set_option("display.max_columns", None)
 
 
-def _pp(df, n=100):
+def _pp(df, n=100, m=15):
     """pp: pretty print polar frame"""
     with pl.Config(set_tbl_cols=-1, set_tbl_rows=n, set_tbl_hide_dataframe_shape=True):
         try:
@@ -25,8 +25,8 @@ def _pp(df, n=100):
         except AttributeError:
             r = df
         column = r.columns
-        for i in range(0, len(column), 15):
-            chunk = r.columns[i : i + 15]
+        for i in range(0, len(column), m):
+            chunk = r.columns[i : i + m]
             print(r[chunk])
     print(r.shape)
 
@@ -43,14 +43,30 @@ def set_parquet():
     """set_parquet:"""
     pbf_path = next(list_files("data", "britain"))
     filestub = os.path.basename(pbf_path).split(".")[0]
-    if list_files("output", filestub) != ():
+    try:
+        next(list_files("output", filestub))
         return
+    except StopIteration:
+        pass
     print(filestub)
     _ = qosm.convert_pbf_to_parquet(
         pbf_path,
-        tags_filter={"railway": True, "rail": True},
+        # tags_filter={"type": ["route", "route_master"], "network": True, "railway": True, "rail": True, "train": True, "network:metro": True},
+        tags_filter={"railway": True, "rail": True, "train": True},
         keep_all_tags=True,
         result_file_path=f"output/{filestub}.parquet",
+    )
+
+
+def get_parquet(key):
+    """set_parquet:"""
+    pbf_path = next(list_files("data", "britain"))
+    filestub = os.path.basename(pbf_path).split(".")[0]
+    print(filestub, key)
+    return qosm.convert_pbf_to_geodataframe(
+        pbf_path,
+        keep_all_tags=True,
+        filter_osm_ids=[key],
     )
 
 
@@ -74,6 +90,17 @@ def get_rail():
         )
         data.append(r)
     return pl.concat(data)
+
+
+def get_overground(rail):
+    """get_london_overground:"""
+    r = []
+    for k in ["Liberty", "Lioness", "Mildmay", "Suffragette", "Weaver", "Windrush"]:
+        df = rail.filter(pl.col("line").str.contains(k)).with_columns(
+            network_name=pl.lit(k)
+        )
+        r.append(df)
+    return pl.concat(r)
 
 
 def get_geopanda(df):
@@ -130,6 +157,8 @@ def main():
         .otherwise(pl.lit("None")),
     )
     write_geopanda(rail.filter(pl.col("rail") == 2).fill_null(""), "rail")
+    overground = get_overground(rail)
+    write_geopanda(overground.fill_null(""), layer="Overground")
     print(OUTPATH)
 
 
